@@ -1,74 +1,74 @@
--- ============================================================================
--- SCHEMA SETUP: Restaurant & Order Analytics Mock Database
--- Target Engine: PostgreSQL / Standard Relational SQL
--- ============================================================================
-
--- Drop tables if they already exist to ensure clean, repeatable environments
-DROP TABLE IF EXISTS order_items;
-DROP TABLE IF EXISTS orders;
-DROP TABLE IF EXISTS locations;
-
--- 1. Create Locations Table
+-- 1. Create Tables
 CREATE TABLE locations (
     location_id INT PRIMARY KEY,
-    location_name VARCHAR(100) NOT NULL,
-    city VARCHAR(50) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE
+    location_name VARCHAR(100),
+    city VARCHAR(50),
+    pos_system VARCHAR(50) -- e.g., 'Toast', 'Aloha'
 );
 
--- 2. Create Orders Table
 CREATE TABLE orders (
     order_id INT PRIMARY KEY,
-    location_id INT NOT NULL,
-    channel VARCHAR(30) NOT NULL,       -- e.g., 'Online', 'Dine-In', 'Drive-Thru'
-    subtotal DECIMAL(10, 2) NOT NULL,
-    order_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_order_location 
-        FOREIGN KEY (location_id) 
-        REFERENCES locations(location_id) 
-        ON DELETE CASCADE
+    location_id INT,
+    order_timestamp TIMESTAMP,
+    order_status VARCHAR(20), -- 'Completed', 'Cancelled', 'Refunded'
+    channel VARCHAR(20), -- 'In-Store', 'Online', 'UberEats'
+    subtotal DECIMAL(10,2),
+    tax DECIMAL(10,2),
+    FOREIGN KEY (location_id) REFERENCES locations(location_id)
 );
 
--- 3. Create Order Items Table
 CREATE TABLE order_items (
     item_id INT PRIMARY KEY,
-    order_id INT NOT NULL,
-    item_name VARCHAR(100) NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
-    CONSTRAINT fk_item_order 
-        FOREIGN KEY (order_id) 
-        REFERENCES orders(order_id) 
-        ON DELETE CASCADE
+    order_id INT,
+    item_name VARCHAR(100),
+    category VARCHAR(50), -- 'Beverage', 'Food', 'Dessert'
+    price DECIMAL(10,2),
+    quantity INT,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id)
 );
 
--- ============================================================================
--- SEED DATA: Populate with edge cases (including Null Traps & Varied Subtotals)
--- ============================================================================
+CREATE TABLE pos_sync_logs (
+    log_id INT PRIMARY KEY,
+    order_id INT,
+    sync_status VARCHAR(20), -- 'Success', 'Failed'
+    error_message VARCHAR(255),
+    sync_timestamp TIMESTAMP
+);
 
--- Seed Locations
-INSERT INTO locations (location_id, location_name, city) VALUES
-(101, 'Downtown Bistro', 'Chicago'),
-(102, 'Metro Station Express', 'Chicago'),
-(103, 'Suburban Hub', 'Naperville'),
-(104, 'The Offline Cafe', 'Evanston'); -- This location will have NO Online channel records
+-- 2. Insert Mock Data
+INSERT INTO locations VALUES 
+(101, 'Downtown Bistro', 'Chicago', 'Toast'),
+(102, 'Metro Diner', 'Chicago', 'Aloha'),
+(103, 'Suburban Cafe', 'Evanston', 'Toast');
 
--- Seed Orders (Ensuring explicit variance for ranking and aggregation queries)
-INSERT INTO orders (order_id, location_id, channel, subtotal) VALUES
-(1001, 101, 'Online',     45.50),
-(1002, 101, 'Dine-In',    120.00), -- High ticket
-(1003, 102, 'Online',     15.25),
-(1004, 102, 'Drive-Thru', 22.80),
-(1005, 103, 'Online',     300.00), -- Absolute Peak Sales order
-(1006, 103, 'Online',     120.00), -- Tied for Second Highest subtotal!
-(1007, 101, 'Online',     85.00),
-(1008, 104, 'Dine-In',    40.00);  -- Has no Online sales to test the NOT EXISTS logic
+INSERT INTO orders VALUES 
+(1001, 101, '2026-05-15 12:30:00', 'Completed', 'In-Store', 45.00, 4.50),
+(1002, 101, '2026-05-15 13:15:00', 'Completed', 'Online', 22.50, 2.25),
+(1003, 102, '2026-05-15 18:00:00', 'Completed', 'UberEats', 60.00, 6.00),
+(1004, 102, '2026-05-15 18:45:00', 'Cancelled', 'In-Store', 15.00, 1.50),
+(1005, 103, '2026-05-16 09:00:00', 'Completed', 'Online', 12.00, 1.20),
+(1006, 101, '2026-05-16 11:00:00', 'Completed', 'In-Store', 35.00, 3.50),
+(1007, 102, '2026-05-16 12:00:00', 'Refunded', 'Online', 50.00, 5.00);
 
--- Seed Order Items (To test baseline filtering and sorting queries)
-INSERT INTO order_items (item_id, order_id, item_name, price) VALUES
-(1, 1001, 'Truffle Burger', 18.50),
-(2, 1001, 'Craft Beer',      7.00),
-(3, 1002, 'Ribeye Steak',    45.00),
-(4, 1002, 'Premium Wine',    75.00),
-(5, 1003, 'Classic Cheeseburger', 11.25),
-(6, 1005, 'Catering Platter A',  150.00),
-(7, 1005, 'Catering Platter B',  150.00);
+INSERT INTO order_items VALUES 
+(1, 1001, 'Bacon Cheeseburger', 'Food', 15.00, 2),
+(2, 1001, 'Craft Beer', 'Beverage', 7.50, 2),
+(3, 1002, 'Margherita Pizza', 'Food', 18.00, 1),
+(4, 1002, 'Diet Soda', 'Beverage', 4.50, 1),
+(5, 1003, 'Ribeye Steak', 'Food', 40.00, 1),
+(6, 1003, 'Red Wine', 'Beverage', 10.00, 2),
+(7, 1004, 'Chicken Tenders', 'Food', 11.00, 1),
+(8, 1004, 'Fries', 'Food', 4.00, 1),
+(9, 1005, 'Avocado Toast', 'Food', 9.00, 1),
+(10, 1005, 'Latte', 'Beverage', 3.00, 1),
+(11, 1006, 'Salmon Salad', 'Food', 20.00, 1),
+(12, 1006, 'Iced Tea', 'Beverage', 5.00, 3),
+(13, 1007, 'Sushi Combo', 'Food', 50.00, 1);
+
+INSERT INTO pos_sync_logs VALUES 
+(501, 1001, 'Success', NULL, '2026-05-15 12:31:00'),
+(502, 1002, 'Failed', 'API Timeout - Connex Integration failure', '2026-05-15 13:16:00'),
+(503, 1003, 'Success', NULL, '2026-05-15 18:02:00'),
+(504, 1004, 'Success', NULL, '2026-05-15 18:46:00'),
+(505, 1005, 'Failed', 'Payload validation error: missing JSON tag', '2026-05-16 09:02:00'),
+(506, 1006, 'Success', NULL, '2026-05-16 11:01:00');
