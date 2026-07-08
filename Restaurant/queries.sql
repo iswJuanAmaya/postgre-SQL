@@ -191,6 +191,7 @@ Scenario: When troubleshooting log tables, you often only care about the absolut
 Your Task: Write a query that scans the pos_sync_logs table and assigns a sequential row number to each log entry separated by order_id, ordered by the sync_timestamp descending.
 */
 select sync_timestamp, order_id, row_number() OVER(PARTITION BY order_id order by sync_timestamp desc) from pos_sync_logs  
+
 /*Exercise 2: Identifying the Highest Spenders (RANK / DENSE_RANK)
 Scenario: Management wants to see a leaderboard of orders to find their VIP transactions.
 Your Task: Write a query against the orders table that returns the order_id, location_id, and subtotal. Add a column called sales_rank that ranks the orders from highest subtotal to lowest subtotal, resetting the rank for each individual location_id.
@@ -199,6 +200,7 @@ select order_id, location_id, subtotal, rank() over(
 		partition by location_id order by subtotal desc
 ) 
 from orders
+
 /* Exercise 3: Tracking Time In-Between Events (LAG)
 Scenario: In integration support, you need to know if a server is getting hammered by rapid requests.
 Your Task: Write a query against orders that shows the order_id, order_timestamp, and a third column called previous_order_time which pulls the timestamp of the previous order that came into the system (ordered by order_timestamp ascending).
