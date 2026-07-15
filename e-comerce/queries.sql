@@ -77,6 +77,18 @@ order by month
 
 /*10. Previous order gap
 For each customer with multiple orders, calculate the number of days between their current and previous order. Show customer name, order_date, prev_order_date, days_gap.*/
+with lagged as (
+    select
+        c.name,
+        o.order_date,
+        lag(o.order_date) over (partition by o.customer_id order by o.order_date) as prev_order_date
+    from orders o
+    join customers c using (customer_id)
+)
+select *, order_date - prev_order_date as days_gap
+from lagged
+where prev_order_date is not null
+order by name, order_date
 
 /*11. Index for order lookups
 The query below is slow on large data:
@@ -87,3 +99,8 @@ Write the CREATE INDEX statement that would speed this up. Then use EXPLAIN to v
 Rewrite this correlated subquery to use a JOIN instead — it's scanning the entire table on every row:
 SELECT name FROM customers c
 WHERE (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.customer_id) > 1;*/
+SELECT name FROM customers c
+join orders o using(customer_id)
+group by name 
+having count(c.name) > 1
+order by name
