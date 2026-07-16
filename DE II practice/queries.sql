@@ -36,7 +36,7 @@ having count(e.employee_id)>2
 /* 4. Employee with the highest salary
 Return name, department, and salary of the employee with the highest salary.
 Do not use LIMIT. */
---4.1 Limit offset
+--4.1 Limit & offset
 select e.name, d.department_name, e.salary from employees e 
 join departments d  using(department_id)
 order by salary desc
@@ -48,11 +48,11 @@ with cte as (
 	join departments d  using(department_id)
 )
 select * from cte where top_salary = 1
---4.3
+--4.3 MAX
 select e.name, d.department_name, e.salary from employees e 
 join departments d  using(department_id)
 where salary = (select max(salary) from employees)
---4.4
+--4.4 Subquery with Row_number
 select * from (
 	select e.name, d.department_name, e.salary, row_number() over(order by salary desc) from employees e 
 	join departments d  using(department_id)
@@ -84,6 +84,13 @@ with cte as(
 select e.name, e.salary, round(cte.avg, 2) as average_per_department, round(e.salary-cte.avg,2) as diff
 from employees e 
 join cte using(department_id)
+--7.2
+SELECT e.name,
+       e.salary,
+       ROUND(AVG(e.salary) OVER (PARTITION BY e.department_id), 2) AS dept_avg,
+       ROUND(e.salary - AVG(e.salary) OVER (PARTITION BY e.department_id), 2) AS diff
+FROM employees e
+JOIN departments d USING(department_id);
 
 /* 8. Running total of sales by rep
 For each sales rep show each sale date, amount, and a running total of their sales ordered by date. */
@@ -118,15 +125,39 @@ select * from cte where rank= 1
 Show total sales amount per employee, with one column per product:
 Software | Hardware | Services
 Only include employees who have sales. */
+select
+	e.name,
+	sum(case s.product when 'Software' then s.amount else 0 end) "Software",
+	sum(case s.product when 'Hardware' then s.amount else 0 end) "Hardware",
+	sum(case s.product when 'Services' then s.amount else 0 end) "Services"
+from sales s
+join employees e using(employee_id)
+group by name
 
 /* 13. Monthly sales pivot (Q1 2023)
 Show total sales per region for Jan, Feb, Mar 2023 as separate columns:
 region | jan | feb | mar */
+select 
+	region, 
+	sum(case when to_char(sale_date, 'yyyy-mm') = '2023-01' then amount else 0 end) "Jan",
+	sum(case when to_char(sale_date, 'yyyy-mm') = '2023-02' then amount else 0 end) "Feb",
+	sum(case when to_char(sale_date, 'yyyy-mm') = '2023-03' then amount else 0 end) "Mar"
+from sales
+group by region
 
 /* 14. Duplicate detection
 Find employees where the same name appears more than once in the employees table.
 Return the name and how many times it appears. */
+select name, count(name) from employees group by name having count(name) >1
 
 /* 15. Employees hired in the last 2 years with no sales
 Find employees hired after 2022-01-01 who have never made a sale.
 Show name, hire_date, and department. */
+select e.name, e.hire_date, d.department_name 
+from employees e 
+join departments d using(department_id)
+left join sales s using(employee_id) 
+where e.hire_date > '2022-01-01'::date and s.employee_id is null
+order by name
+
+
